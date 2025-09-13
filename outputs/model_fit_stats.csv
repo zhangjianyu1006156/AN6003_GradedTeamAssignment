@@ -1,0 +1,4 @@
+"Model","R2","Adj_R2"
+"m0: Sal95 ~ Gender",0.12597175059857,0.122597124153005
+"m1: Sal95 ~ Gender + Dept + Rank + Exper + Prate + Cert + Clin",0.904331091460515,0.899701950724734
+"m3: Sal94 ~ Gender + Dept + Rank + Exper + Prate + Cert + Clin",0.904052457917369,0.899409834913371

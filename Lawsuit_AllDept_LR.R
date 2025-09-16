@@ -200,6 +200,176 @@ outfile_wide <- "outputs/model_m0_m3_coefficients_wide.csv"
 write.csv(wide, file = outfile_wide, row.names = FALSE)
 cat("[Saved]", normalizePath(outfile_wide), "\n")
 
+# =========================================================
+# 7B. Slide visuals (Base R) — add right after model prints
+# =========================================================
+
+# ---- small palette ----
+female_col <- "#E8A6A6"; male_col <- "#9EB9D8"
+ink <- "#333333"; grid_col <- "#D9D9D9"; accent <- "#6FA8DC"
+
+# ---------- (1) Gender effect: m0 (USD) vs m3 (%) ----------
+png("outputs/plot_gender_effect_m0_vs_m3.png", width=1800, height=900, res=180)
+layout(matrix(1:2, nrow=1))
+
+## m0: raw $ diff (Male - Female) with 95% CI
+par(mar=c(5,6,3,2), xaxs="i")
+sm0 <- summary(m0); ci0 <- confint(m0)
+b0  <- sm0$coefficients["GenderMale","Estimate"]
+lo0 <- ci0["GenderMale",1]; hi0 <- ci0["GenderMale",2]
+xlim0 <- range(c(lo0, hi0))*1.1
+plot(NA, xlim=xlim0, ylim=c(0.5,1.5), yaxt="n",
+     xlab="Difference in 1995 Salary (USD)", ylab="", main="m0: Raw gender gap ($)",
+     col.axis=ink, col.lab=ink, col.main=ink)
+abline(v=0, col=grid_col, lwd=2)
+segments(lo0,1, hi0,1, col=accent, lwd=6, lend=1)
+points(b0,1, pch=19, cex=2, col=accent)
+axis(2, at=1, labels="Male - Female", las=1, col.axis=ink)
+
+## m3: within-structure premium (%) with 95% CI
+par(mar=c(5,6,3,2), xaxs="i")
+sm3 <- summary(m3); ci3 <- confint(m3)
+b3  <- sm3$coefficients["GenderMale","Estimate"]
+lo3 <- ci3["GenderMale",1]; hi3 <- ci3["GenderMale",2]
+pct <- (exp(b3)-1)*100; loP <- (exp(lo3)-1)*100; hiP <- (exp(hi3)-1)*100
+xlim3 <- range(c(loP, hiP))*1.1
+plot(NA, xlim=xlim3, ylim=c(0.5,1.5), yaxt="n",
+     xlab="Estimated % difference in Salary (1994)", ylab="", main="m3: Within-structure premium (%)",
+     col.axis=ink, col.lab=ink, col.main=ink)
+abline(v=0, col=grid_col, lwd=2)
+segments(loP,1, hiP,1, col=accent, lwd=6, lend=1)
+points(pct,1, pch=19, cex=2, col=accent)
+axis(2, at=1, labels="Male vs Female", las=1, col.axis=ink)
+dev.off()
+
+# ---------- helper: simplified forest ----------
+simple_forest <- function(model, title, terms_keep, to_percent=FALSE) {
+  sm <- summary(model); cf <- sm$coefficients; ci <- confint(model)
+  keep <- terms_keep[terms_keep %in% rownames(cf)]
+  est <- cf[keep,"Estimate"]; lo <- ci[keep,1]; hi <- ci[keep,2]
+  xlab <- "Coefficient"
+  if (to_percent) {
+    ind <- grepl("^Gender|^Clin|^Cert|^Dept", keep)  # indicator terms
+    est[ind] <- (exp(est[ind])-1)*100
+    lo[ind]  <- (exp(lo[ind]) -1)*100
+    hi[ind]  <- (exp(hi[ind]) -1)*100
+    xlab <- "Effect size (%, for indicator terms); raw units otherwise"
+  }
+  par(mar=c(5,16,3,2), xaxs="i")
+  plot(est, seq_along(est), xlim=range(c(lo,hi))*1.1, pch=19, yaxt="n",
+       ylab="", xlab=xlab, main=title, col=ink)
+  segments(lo, seq_along(est), hi, seq_along(est), col=accent, lwd=5, lend=1)
+  points(est, seq_along(est), pch=19, cex=1.4, col=accent)
+  # nicer labels
+  lab <- gsub("^GenderMale$","Gender",
+              gsub("^ClinClinical$","Clin",
+                   gsub("^CertCert$","Cert",
+                        gsub("^RankAssociate$","Associate",
+                             gsub("^RankFull$","Full Professor",
+                                  gsub("^DeptPhysiology$","Physiology",
+                                       gsub("^DeptGenetics$","Genetics",
+                                            gsub("^DeptPediatrics$","Pediatrics",
+                                                 gsub("^DeptMedicine$","Medicine",
+                                                      gsub("^DeptSurgery$","Surgery", keep))))))))))
+  axis(2, at=seq_along(est), labels=lab, las=1)
+  abline(v=0, col=grid_col, lwd=2)
+}
+
+# ---------- (2) simplified forests ----------
+png("outputs/plot_forest_simple_m1.png", width=1600, height=1200, res=180)
+simple_terms_m1 <- c("GenderMale","RankAssociate","RankFull",
+                     "DeptPhysiology","DeptGenetics","DeptPediatrics","DeptMedicine","DeptSurgery",
+                     "Exper")
+simple_forest(m1, "Simplified Forest — m1 (levels, key drivers)", simple_terms_m1, to_percent=FALSE)
+dev.off()
+
+png("outputs/plot_forest_simple_m3.png", width=1600, height=1200, res=180)
+simple_terms_m3 <- c("GenderMale","ClinClinical","CertCert",
+                     "DeptPhysiology","DeptGenetics","DeptPediatrics","DeptMedicine","DeptSurgery",
+                     "Log_Exper")
+simple_forest(m3, "Simplified Forest — m3 (log; indicators in %)", simple_terms_m3, to_percent=TRUE)
+dev.off()
+
+# ---------- (3) Predicted Salary bar chart (same covariates; change only Gender) ----------
+# 用 m1 在“其他变量不变”的情况下，分别把 Gender 设为 Female / Male，取平均预测薪资
+pred_base <- df
+new_f <- pred_base; new_f$Gender <- factor("Female", levels=levels(df$Gender))
+new_m <- pred_base; new_m$Gender <- factor("Male",   levels=levels(df$Gender))
+yhat_f <- mean(predict(m1, newdata=new_f))
+yhat_m <- mean(predict(m1, newdata=new_m))
+
+png("outputs/plot_predicted_salary_gender_m1.png", width=1200, height=900, res=180)
+par(mar=c(5,5,3,2))
+vals <- c(yhat_f, yhat_m)
+bp <- barplot(vals, names.arg=c("Female","Male"), col=c(female_col, male_col),
+              ylim=c(0, max(vals)*1.15), ylab="Predicted Salary 1995 (USD)",
+              main="Predicted Salary by Gender (m1, same covariates)")
+text(bp, vals, labels=format(round(vals,0), big.mark=","), pos=3, cex=1)
+dev.off()
+
+# ---------- (4) Observed vs Predicted (m2 & m3) ----------
+png("outputs/plot_obs_vs_pred_m2.png", width=1600, height=1000, res=180)
+par(mar=c(5,5,3,2))
+yhat2 <- predict(m2); y2 <- df$Log_Sal94
+plot(yhat2, y2, pch=19, col=ink, xlab="Predicted Log Salary 1994 (m2)", ylab="Observed Log Salary 1994",
+     main=sprintf("Observed vs Predicted — m2  (Adj R² = %.3f)", summary(m2)$adj.r.squared))
+abline(0,1, col=accent, lwd=3); grid(col=grid_col)
+dev.off()
+
+png("outputs/plot_obs_vs_pred_m3.png", width=1600, height=1000, res=180)
+par(mar=c(5,5,3,2))
+yhat3 <- predict(m3); y3 <- df$Log_Sal94
+plot(yhat3, y3, pch=19, col=ink, xlab="Predicted Log Salary 1994 (m3)", ylab="Observed Log Salary 1994",
+     main=sprintf("Observed vs Predicted — m3  (Adj R² = %.3f)", summary(m3)$adj.r.squared))
+abline(0,1, col=accent, lwd=3); grid(col=grid_col)
+dev.off()
+
+# ---------- Predicted Salary bar charts for m2 & m3 (Log_Sal94 models) ----------
+# 回变换采用 Duan smearing：E[Y|X] ≈ mean(exp(residuals)) * exp(X beta)
+
+# 供配色（若已在前面定义可略过）
+if (!exists("female_col")) female_col <- "#E8A6A6"
+if (!exists("male_col"))   male_col   <- "#9EB9D8"
+if (!exists("ink"))        ink        <- "#333333"
+
+# 构造“只改性别，其它保持样本分布”的预测集
+base_dat <- df
+new_f <- base_dat; new_f$Gender <- factor("Female", levels=levels(df$Gender))
+new_m <- base_dat; new_m$Gender <- factor("Male",   levels=levels(df$Gender))
+
+# ---- m2: Log_Sal94 ~ Gender + Clin + Cert + Log_Prate + Log_Exper + Dept + Rank ----
+smear2 <- mean(exp(residuals(m2)), na.rm=TRUE)  # Duan smearing factor
+pred_f2 <- mean(smear2 * exp(predict(m2, newdata=new_f)))
+pred_m2 <- mean(smear2 * exp(predict(m2, newdata=new_m)))
+
+png("outputs/plot_predicted_salary_gender_m2.png", width=1200, height=900, res=180)
+par(mar=c(5,5,3,2))
+vals2 <- c(pred_f2, pred_m2)
+bp2 <- barplot(vals2, names.arg=c("Female","Male"),
+               col=c(female_col, male_col),
+               ylim=c(0, max(vals2)*1.15),
+               ylab="Predicted Salary 1994 (USD)",
+               main="Predicted Salary by Gender — m2 (back-transformed)")
+text(bp2, vals2, labels=format(round(vals2,0), big.mark=","), pos=3, cex=1)
+dev.off()
+
+# ---- m3: Log_Sal94 ~ Gender + Clin + Cert + Log_Prate + Log_Exper + Dept ----
+smear3 <- mean(exp(residuals(m3)), na.rm=TRUE)
+pred_f3 <- mean(smear3 * exp(predict(m3, newdata=new_f)))
+pred_m3 <- mean(smear3 * exp(predict(m3, newdata=new_m)))
+
+png("outputs/plot_predicted_salary_gender_m3.png", width=1200, height=900, res=180)
+par(mar=c(5,5,3,2))
+vals3 <- c(pred_f3, pred_m3)
+bp3 <- barplot(vals3, names.arg=c("Female","Male"),
+               col=c(female_col, male_col),
+               ylim=c(0, max(vals3)*1.15),
+               ylab="Predicted Salary 1994 (USD)",
+               main="Predicted Salary by Gender — m3 (back-transformed)")
+text(bp3, vals3, labels=format(round(vals3,0), big.mark=","), pos=3, cex=1)
+dev.off()
+
+
 # ---------------------------
 # 8. Diagnostic plots (Base R)
 # ---------------------------

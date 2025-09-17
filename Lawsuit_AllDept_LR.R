@@ -291,7 +291,6 @@ simple_forest(m3, "Simplified Forest — m3 (log; indicators in %)", simple_term
 dev.off()
 
 # ---------- (3) Predicted Salary bar chart (same covariates; change only Gender) ----------
-# 用 m1 在“其他变量不变”的情况下，分别把 Gender 设为 Female / Male，取平均预测薪资
 pred_base <- df
 new_f <- pred_base; new_f$Gender <- factor("Female", levels=levels(df$Gender))
 new_m <- pred_base; new_m$Gender <- factor("Male",   levels=levels(df$Gender))
@@ -325,14 +324,10 @@ abline(0,1, col=accent, lwd=3); grid(col=grid_col)
 dev.off()
 
 # ---------- Predicted Salary bar charts for m2 & m3 (Log_Sal94 models) ----------
-# 回变换采用 Duan smearing：E[Y|X] ≈ mean(exp(residuals)) * exp(X beta)
-
-# 供配色（若已在前面定义可略过）
 if (!exists("female_col")) female_col <- "#E8A6A6"
 if (!exists("male_col"))   male_col   <- "#9EB9D8"
 if (!exists("ink"))        ink        <- "#333333"
 
-# 构造“只改性别，其它保持样本分布”的预测集
 base_dat <- df
 new_f <- base_dat; new_f$Gender <- factor("Female", levels=levels(df$Gender))
 new_m <- base_dat; new_m$Gender <- factor("Male",   levels=levels(df$Gender))

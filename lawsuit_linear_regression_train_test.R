@@ -1,4 +1,3 @@
-
 # ===============================================================
 # Lawsuit - Linear Regression (Train/Test Split + CSV + Visuals)
 # Scope: Base R only (plus 'car' for VIF).
@@ -15,25 +14,19 @@
 
 suppressPackageStartupMessages(library(car))
 
-# ----------- Set working directory (EDIT for your machine) -----------
+# ----------- Set working directory -----------
 # Mac example:
 setwd("/Users/zhangjianyu/Desktop/学习课件/NTU/AN6003 Analytics Strategy/AN6003 Course Materials/AN6003_GradedTeamAssignment")
 # Windows example:
 # setwd("C:/Users/Zhang/OneDrive - Nanyang Technological University/桌面/NTU学习/AN6003 Course Materials/AN6003 Course Materials/Graded Team Assignment - Gender Discrimination Lawsuit/AN6003_GradedTeamAssignment")
 
-# ---------------------------
 # 0. Setup
-# ---------------------------
 dir.create("outputs", showWarnings = FALSE)
 
-# ---------------------------
 # 1. Read data
-# ---------------------------
 df <- read.csv("Lawsuit.csv", stringsAsFactors = FALSE)
 
-# ---------------------------
 # 2. Clean and cast types
-# ---------------------------
 df$Dept <- factor(df$Dept,
                   levels = 1:6,
                   labels = c("Biochem/MolBio", "Physiology", "Genetics",
@@ -49,9 +42,7 @@ df$Log_Sal95  <- log(df$Sal95)
 df$Log_Exper  <- log1p(df$Exper)
 df$Log_Prate  <- log1p(df$Prate)
 
-# ---------------------------
 # 3. Basic exploration (console + CSV)
-# ---------------------------
 cat("\n=== Basic Summary of Dataset ===\n")
 print(summary(df))
 
@@ -82,18 +73,14 @@ write.csv(gender_counts, file = "outputs/gender_counts.csv", row.names = FALSE)
 dept_gender_tbl <- as.data.frame(table(Dept = df$Dept, Gender = df$Gender))
 write.csv(dept_gender_tbl, file = "outputs/gender_by_dept_counts.csv", row.names = FALSE)
 
-# ---------------------------
 # 4. Train/Test split (80/20)
-# ---------------------------
 set.seed(42)
 n <- nrow(df); idx <- sample.int(n); n_tr <- floor(0.6 * n)
 train_idx <- idx[1:n_tr]; test_idx <- idx[(n_tr + 1):n]
 train <- df[train_idx, ]
 test  <- df[test_idx, ]
 
-# ---------------------------
 # 5. Models (fit on TRAIN only)
-# ---------------------------
 m0_tr <- lm(Sal95 ~ Gender, data = train)
 m1_tr <- lm(Sal95 ~ Gender + Dept + Rank + Exper + Prate + Cert + Clin, data = train)
 m2_tr <- lm(Log_Sal94 ~ Gender + Clin + Cert + Log_Prate + Log_Exper + Dept + Rank, data = train)
@@ -105,9 +92,7 @@ cat("\n=== m1_tr ===\n"); print(summary(m1_tr)); print(vif(m1_tr))
 cat("\n=== m2_tr ===\n"); print(summary(m2_tr)); print(vif(m2_tr))
 cat("\n=== m3_tr ===\n"); print(summary(m3_tr)); print(vif(m3_tr))
 
-# ---------------------------
 # 6. Out-of-sample evaluation (TEST)
-# ---------------------------
 oos_metrics <- function(y_true, y_pred) {
   rmse <- sqrt(mean((y_true - y_pred)^2))
   r2   <- 1 - sum((y_true - y_pred)^2) / sum((y_true - mean(y_true))^2)
@@ -146,9 +131,7 @@ test_metrics <- data.frame(
 write.csv(test_metrics, "outputs/test_metrics_oos.csv", row.names = FALSE)
 print(test_metrics)
 
-# ---------------------------
 # 7. Helpers for CSV & labels
-# ---------------------------
 pstars <- function(p) ifelse(p < .001, "***",
                              ifelse(p < .01,  "**",
                                     ifelse(p < .05,  "*", "")))
@@ -255,7 +238,6 @@ make_usd_barplot_horiz <- function(fit, model_label, baseline, file,
        adj = ifelse(usd >= 0, 0, 1), xpd = NA, cex = 1.1,
        col = ifelse(lab == highlight_term, "#1f77b4", "black"))
   
-  # 顶部标题与统计
   mtext("Multiple Linear Regression", side = 3, line = 6.2,
         cex = 1.6, font = 2, col = "#2B50F3")
   mtext(model_label, side = 3, line = 4.6, cex = 1.25, font = 2, col = "#2B50F3")
@@ -288,9 +270,7 @@ make_usd_barplot_horiz(
 )
 
 
-# ---------------------------
 # 8. Visuals for slides
-# ---------------------------
 female_col <- "pink"; male_col <- "lightblue"
 ink <- "#333333"; grid_col <- "#D9D9D9"; accent <- "#6FA8DC"
 

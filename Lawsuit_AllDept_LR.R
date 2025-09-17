@@ -17,19 +17,13 @@ setwd("/Users/zhangjianyu/Desktop/学习课件/NTU/AN6003 Analytics Strategy/AN6
 # Windows Path
 #setwd("C:/Users/Zhang/OneDrive - Nanyang Technological University/桌面/NTU学习/AN6003 Course Materials/AN6003 Course Materials/Graded Team Assignment - Gender Discrimination Lawsuit/AN6003_GradedTeamAssignment")
 
-# ---------------------------
 # 0. Setup
-# ---------------------------
 if (!dir.exists("outputs")) dir.create("outputs")
 
-# ---------------------------
 # 1. Read data
-# ---------------------------
 df <- read.csv("Lawsuit.csv", stringsAsFactors = FALSE)
 
-# ---------------------------
 # 2. Clean and cast types
-# ---------------------------
 df$Dept <- factor(df$Dept,
                   levels = 1:6,
                   labels = c("Biochem/MolBio", "Physiology", "Genetics",
@@ -45,9 +39,7 @@ df$Log_Sal95  <- log(df$Sal95)
 df$Log_Exper  <- log1p(df$Exper)         # log(Exper + 1), avoids log(0)
 df$Log_Prate  <- log1p(df$Prate)         # log(Prate + 1)
 
-# ---------------------------
 # 3. Basic exploration (console + CSV)
-# ---------------------------
 cat("\n=== Basic Summary of Dataset ===\n")
 print(summary(df))
 
@@ -81,9 +73,7 @@ write.csv(gender_counts, file = "outputs/gender_counts.csv", row.names = FALSE)
 dept_gender_tbl <- as.data.frame(table(Dept = df$Dept, Gender = df$Gender))
 write.csv(dept_gender_tbl, file = "outputs/gender_by_dept_counts.csv", row.names = FALSE)
 
-# ---------------------------
 # 4. Simple boxplots (Base R; optional to save as images)
-# ---------------------------
 boxplot(Sal94 ~ Gender, data = df,
         main = "Salary (1994) by Gender", xlab = "Gender", ylab = "Salary 1994",
         col = c("pink", "lightblue"))
@@ -91,9 +81,7 @@ boxplot(Sal95 ~ Gender, data = df,
         main = "Salary (1995) by Gender", xlab = "Gender", ylab = "Salary 1995",
         col = c("pink", "lightblue"))
 
-# ---------------------------
 # 4.5 Train/Test split (80/20)
-# ---------------------------
 set.seed(42)                       
 n <- nrow(df)
 idx <- sample.int(n)
@@ -105,9 +93,7 @@ test_idx  <- idx[(n_tr + 1):n]
 train <- df[train_idx, ]
 test  <- df[test_idx, ]
 
-# ---------------------------
 # 5. Linear Regression Models (train on 80%)
-# ---------------------------
 # m0: baseline (levels, 1995)
 m0_tr <- lm(Sal95 ~ Gender, data = train)
 
@@ -123,10 +109,7 @@ vif(m2_tr)
 m3_tr <- lm(Log_Sal94 ~ Gender + Clin + Cert + Log_Prate + Log_Exper + Dept, data = train)
 vif(m3_tr)
 
-
-# ---------------------------
 # 6. Print train results + evaluate on test
-# ---------------------------
 cat("\n=== TRAIN (80%) summaries ===\n")
 cat("\n=== m0_tr ===\n"); print(summary(m0_tr))
 cat("\n=== m1_tr ===\n"); print(summary(m1_tr))
@@ -166,10 +149,7 @@ test_metrics <- data.frame(
 write.csv(test_metrics, "outputs/test_metrics_oos.csv", row.names = FALSE)
 print(test_metrics)
 
-
-# ---------------------------
 # 7. Save model outputs to CSV (coefficients + fit stats)
-# ---------------------------
 # 1) helper: significance stars
 pstars <- function(p) ifelse(p < .001, "***",
                              ifelse(p < .01,  "**",
@@ -254,9 +234,7 @@ outfile_wide <- "outputs/model_m0_m3_coefficients_wide.csv"
 write.csv(wide, file = outfile_wide, row.names = FALSE)
 cat("[Saved]", normalizePath(outfile_wide), "\n")
 
-# =========================================================
 # 7B. Slide visuals (Base R) — add right after model prints
-# =========================================================
 
 # ---- small palette ----
 female_col <- "pink"; male_col <- "lightblue"
@@ -418,9 +396,7 @@ bp3 <- barplot(vals3, names.arg=c("Female","Male"),
 text(bp3, vals3, labels=format(round(vals3,0), big.mark=","), pos=3, cex=1)
 dev.off()
 
-## =========================
 ## Clean horizontal barplots
-## =========================s
 bar_cols <- function(labs) ifelse(labs == "Gender", "#1f77b4", "gray78")
 
 # 1) log-model
@@ -456,7 +432,7 @@ make_barplot_horiz <- function(fit, model_label, file) {
   text(ifelse(eff >= 0, eff + offs, eff - offs),
        y,
        labels = fmt(eff, p),
-       adj = ifelse(eff >= 0, 0, 1),    # 右对齐/左对齐
+       adj = ifelse(eff >= 0, 0, 1),    
        xpd = NA, cex = 1.0, col = ifelse(lab=="Gender","#1f77b4","black"))
   
   mtext("Multiple Linear Regression", side = 3, line = 5.8,
@@ -543,9 +519,7 @@ make_usd_barplot_horiz(m2, "Model m2 (Log_Sal94, with Rank)",
 make_usd_barplot_horiz(m3, "Model m3 (Log_Sal94, no Rank)",
                        baseline, file = "outputs/m3_usd_barplot.png")
 
-# ---------------------------
 # 7. Save train-model outputs to CSV (coefficients + fit stats)
-# ---------------------------
 save_model_coefs <- function(model, name) {
   sm <- summary(model)$coefficients
   out <- data.frame(term = rownames(sm),
@@ -610,12 +584,9 @@ pred_m2 <- mean(smear2 * exp(predict(m2_tr, newdata=new_m)))
 pred_f3 <- mean(smear3 * exp(predict(m3_tr, newdata=new_f)))
 pred_m3 <- mean(smear3 * exp(predict(m3_tr, newdata=new_m)))
 
-# ---------------------------
 # 8. Diagnostic plots (Base R)
-# ---------------------------
 par(mfrow = c(2, 2)); plot(m0, col = "gray40",   pch = 19); par(mfrow = c(1, 1))
 par(mfrow = c(2, 2)); plot(m1, col = "lightblue", pch = 19); par(mfrow = c(1, 1))
 par(mfrow = c(2, 2)); plot(m2, col = "orange",    pch = 19); par(mfrow = c(1, 1))
 par(mfrow = c(2, 2)); plot(m3, col = "tomato",    pch = 19); par(mfrow = c(1, 1))
-
 cat("\nAnalysis complete. CSV files saved in 'outputs/' folder.\n")

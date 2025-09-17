@@ -1,15 +1,3 @@
-# Lawsuit - Linear Regression (Simplified + CSV Outputs)
-# Scope: Base R only, within course slides (Unit 1–4).
-# What this script does:
-#   - Reads Lawsuit.csv
-#   - Casts factors
-#   - Prints basic summaries to console
-#   - Saves summaries (dataset summary, gender counts, gender-by-dept) to CSV
-#   - Builds three linear models (m0, m1, m3)
-#   - Saves each model's coefficient table to CSV
-#   - Saves model fit stats (R2, AdjR2) to CSV
-#   - Draws simple boxplots and diagnostic plots (not saved as CSV)
-
 library(car)
 
 # Macbook Path
@@ -39,77 +27,27 @@ df$Log_Sal95  <- log(df$Sal95)
 df$Log_Exper  <- log1p(df$Exper)         # log(Exper + 1), avoids log(0)
 df$Log_Prate  <- log1p(df$Prate)         # log(Prate + 1)
 
-# 3. Basic exploration (console + CSV)
-cat("\n=== Basic Summary of Dataset ===\n")
-print(summary(df))
-
-# Numeric variable summary to CSV (base R)
-is_num <- sapply(df, is.numeric)
-num_names <- names(df)[is_num]
-num_summary <- t(sapply(num_names, function(v) {
-  x <- df[[v]]
-  q <- quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
-  c(
-    n = sum(!is.na(x)),
-    mean = mean(x, na.rm = TRUE),
-    sd = sd(x, na.rm = TRUE),
-    min = min(x, na.rm = TRUE),
-    q1 = q[[1]],
-    median = q[[2]],
-    q3 = q[[3]],
-    max = max(x, na.rm = TRUE),
-    na = sum(is.na(x))
-  )
-}))
-num_summary_df <- data.frame(variable = rownames(num_summary), num_summary, row.names = NULL)
-write.csv(num_summary_df, file = "outputs/data_summary_numeric.csv", row.names = FALSE)
-
-# Gender counts CSV
-gender_counts <- as.data.frame(table(df$Gender))
-colnames(gender_counts) <- c("Gender", "Count")
-write.csv(gender_counts, file = "outputs/gender_counts.csv", row.names = FALSE)
-
-# Gender by Dept counts CSV (long format)
-dept_gender_tbl <- as.data.frame(table(Dept = df$Dept, Gender = df$Gender))
-write.csv(dept_gender_tbl, file = "outputs/gender_by_dept_counts.csv", row.names = FALSE)
-
-# 4. Simple boxplots (Base R; optional to save as images)
-boxplot(Sal94 ~ Gender, data = df,
-        main = "Salary (1994) by Gender", xlab = "Gender", ylab = "Salary 1994",
-        col = c("pink", "lightblue"))
-boxplot(Sal95 ~ Gender, data = df,
-        main = "Salary (1995) by Gender", xlab = "Gender", ylab = "Salary 1995",
-        col = c("pink", "lightblue"))
-
-# 4.5 Train/Test split (80/20)
+# 3 Train/Test split (80/20)
 set.seed(42)                       
 n <- nrow(df)
 idx <- sample.int(n)
 n_tr <- floor(0.8 * n)
-
 train_idx <- idx[1:n_tr]
 test_idx  <- idx[(n_tr + 1):n]
-
 train <- df[train_idx, ]
 test  <- df[test_idx, ]
 
-# 5. Linear Regression Models (train on 80%)
+# 4. Linear Regression Models (train on 80%)
 # m0: baseline (levels, 1995)
 m0_tr <- lm(Sal95 ~ Gender, data = train)
-
 # m1: full levels model (1995) with all main controls
 m1_tr <- lm(Sal95 ~ Gender + Dept + Rank + Exper + Prate + Cert + Clin, data = train)
-vif(m1_tr)
-
 # m2: log-levels model (1994) with Rank
 m2_tr <- lm(Log_Sal94 ~ Gender + Clin + Cert + Log_Prate + Log_Exper + Dept + Rank, data = train)
-vif(m2_tr)
-
 # m3: log-levels model (1994) dropping Rank
 m3_tr <- lm(Log_Sal94 ~ Gender + Clin + Cert + Log_Prate + Log_Exper + Dept, data = train)
-vif(m3_tr)
 
-# 6. Print train results + evaluate on test
+# 5. Print train results + evaluate on test
 cat("\n=== TRAIN (80%) summaries ===\n")
 cat("\n=== m0_tr ===\n"); print(summary(m0_tr))
 cat("\n=== m1_tr ===\n"); print(summary(m1_tr))
@@ -122,25 +60,18 @@ oos_metrics <- function(fit, y_true, y_pred) {
   r2   <- 1 - sum((y_true - y_pred)^2) / sum((y_true - mean(y_true))^2)
   c(RMSE = rmse, R2 = r2)
 }
-
 yhat_m1_test <- predict(m1_tr, newdata = test)           
 met_m1 <- oos_metrics(m1_tr, test$Sal95, yhat_m1_test)
-
 smear2 <- mean(exp(residuals(m2_tr)), na.rm = TRUE)
 smear3 <- mean(exp(residuals(m3_tr)), na.rm = TRUE)
-
 yhat_m2_test_log <- predict(m2_tr, newdata = test)
 yhat_m3_test_log <- predict(m3_tr, newdata = test)
-
 yhat_m2_test_lvl <- smear2 * exp(yhat_m2_test_log)
 yhat_m3_test_lvl <- smear3 * exp(yhat_m3_test_log)
-
 met_m2_log <- oos_metrics(m2_tr, test$Log_Sal94, yhat_m2_test_log) 
 met_m3_log <- oos_metrics(m3_tr, test$Log_Sal94, yhat_m3_test_log)
-
 met_m2_lvl <- oos_metrics(m2_tr, test$Sal94,    yhat_m2_test_lvl)   
 met_m3_lvl <- oos_metrics(m3_tr, test$Sal94,    yhat_m3_test_lvl)
-
 test_metrics <- data.frame(
   model   = c("m1 (level) - $", "m2 (log) - log", "m2 (log) - $", "m3 (log) - log", "m3 (log) - $"),
   RMSE    = c(met_m1["RMSE"], met_m2_log["RMSE"], met_m2_lvl["RMSE"], met_m3_log["RMSE"], met_m3_lvl["RMSE"]),
@@ -149,11 +80,9 @@ test_metrics <- data.frame(
 write.csv(test_metrics, "outputs/test_metrics_oos.csv", row.names = FALSE)
 print(test_metrics)
 
-# 7. Save model outputs to CSV (coefficients + fit stats)
+# 6. Save model outputs to CSV (coefficients + fit stats)
 # 1) helper: significance stars
-pstars <- function(p) ifelse(p < .001, "***",
-                             ifelse(p < .01,  "**",
-                                    ifelse(p < .05,  "*", "")))
+pstars <- function(p) ifelse(p < .001, "***",ifelse(p < .01,  "**",ifelse(p < .05,  "*", "")))
 
 # 2) helper: make a tidy coef table (term, est, se, t, p, star, cell)
 tidy_from_lm <- function(model) {
@@ -235,7 +164,6 @@ write.csv(wide, file = outfile_wide, row.names = FALSE)
 cat("[Saved]", normalizePath(outfile_wide), "\n")
 
 # 7B. Slide visuals (Base R) — add right after model prints
-
 # ---- small palette ----
 female_col <- "pink"; male_col <- "lightblue"
 ink <- "#333333"; grid_col <- "#D9D9D9"; accent <- "#6FA8DC"
@@ -450,68 +378,104 @@ make_barplot_horiz <- function(fit, model_label, file) {
   dev.off()
 }
 
-make_usd_barplot_horiz <- function(fit, model_label, baseline, file) {
+# --------- Polished USD horizontal barplot (Base R, pretty) ---------
+pretty_usd_barplot <- function(fit, baseline, model_label, outfile,
+                               title_col="#2B50F3", bar_gender="#5AA1E3",
+                               bar_other="#E6EBF2") {
   sm  <- summary(fit)
   cf  <- sm$coefficients
+  # 不画截距，只画解释变量
   cf  <- cf[rownames(cf) != "(Intercept)", , drop = FALSE]
-  lab <- pretty_term(rownames(cf))
-  b   <- cf[, 1]; p <- cf[, 4]
+  labs <- rownames(cf)
   
-  # Δ$ ≈ baseline * (exp(β)-1)
-  usd <- baseline * (exp(b) - 1)
-  ord <- order(usd, decreasing = TRUE)
+  # 变量名美化（与你现有 pretty_term 一致）
+  prettify <- function(x){
+    x <- gsub("^GenderMale$","Gender",x)
+    x <- gsub("^ClinClinical$","Clin",x)
+    x <- gsub("^CertCert$","Cert",x)
+    x <- gsub("^DeptPhysiology$","Physiology",x)
+    x <- gsub("^DeptGenetics$","Genetics",x)
+    x <- gsub("^DeptPediatrics$","Pediatrics",x)
+    x <- gsub("^DeptMedicine$","Medicine",x)
+    x <- gsub("^DeptSurgery$","Surgery",x)
+    x <- gsub("^RankAssociate$","Associate",x)
+    x <- gsub("^RankFull$","Full Professor",x)
+    x <- gsub("^Log_","log_",x)
+    x
+  }
+  lab <- prettify(labs)
+  
+  b   <- cf[,1]; p <- cf[,4]
+  usd <- baseline * (exp(b) - 1)             # Δ$ = baseline * (exp(β)-1)
+  
+  # 排序：从小到大更像“瀑布”
+  ord <- order(usd)
   usd <- usd[ord]; lab <- lab[ord]; p <- p[ord]
   
-  fmt <- function(u, p) sprintf("%s%s",
-                                ifelse(u>=0, "+$", "-$"),
-                                format(round(abs(u),0), big.mark=",")) |>
-    paste0(pstars(p))
-  cols <- bar_cols(lab)
+  # 颜色：Gender 高亮
+  cols <- ifelse(lab=="Gender", bar_gender, bar_other)
   
-  png(file, width = 1600, height = 1000, res = 180)
-  par(mar = c(6, 18, 8, 6))
-  xlim <- range(c(-baseline*0.15, usd))*1.15
-  plot.new(); plot.window(xlim = xlim, ylim = c(0.5, length(usd)+0.5))
-  abline(v = 0, col = "gray60", lwd = 2)
-  abline(v = pretty(xlim), col = "gray90", lwd = 1)
+  # 布局与画布
+  png(outfile, width=1800, height=1300, res=200, type="cairo")
+  par(mar=c(7, 16, 10, 5), xaxs="i", family="")  # 左边留宽一点给标签
   
-  y <- barplot(usd, horiz = TRUE, names.arg = rep("", length(usd)),
-               xlim = xlim, col = cols, border = "#8f8f8f", add = TRUE)
+  # 轴范围与网格
+  xr <- range(usd)
+  pad <- diff(xr) * 0.15
+  xlim <- c(xr[1]-pad*0.5, xr[2]+pad)            # 右侧多留白放数值
+  plot.new(); plot.window(xlim=xlim, ylim=c(0.5, length(usd)+0.5))
+  abline(v=pretty(xlim), col="#EEF2F6", lwd=1)   # 细网格
+  abline(v=0, col="#9AA6B2", lwd=2.2)            # 零线加粗
   
-  axis(2, at = y, labels = lab, las = 2, tick = FALSE, cex.axis = 1)
-  offs <- diff(par("usr")[1:2]) * 0.015
-  text(ifelse(usd >= 0, usd + offs, usd - offs),
-       y,
-       labels = sapply(seq_along(usd), \(i) fmt(usd[i], p[i])),
-       adj = ifelse(usd >= 0, 0, 1), xpd = NA, cex = 1.0,
-       col = ifelse(lab=="Gender","#1f77b4","black"))
+  # 条形
+  y <- barplot(usd, horiz=TRUE, names.arg=rep("", length(usd)),
+               xlim=xlim, col=cols, border="#C9D3DF", add=TRUE)
   
-  mtext("Multiple Linear Regression", side = 3, line = 5.8,
-        cex = 1.25, font = 2, col = "#2B50F3")
-  mtext(model_label, side = 3, line = 4.0, cex = 1.05, font = 2, col = "#2B50F3")
+  # 左侧变量名（水平）
+  axis(2, at=y, labels=lab, las=2, tick=FALSE, cex.axis=1.1)
   
-  fs  <- sm$fstatistic
-  mpv <- pf(fs[1], fs[2], fs[3], lower.tail = FALSE)
-  mtext(sprintf("R² = %.1f%%   Adj R² = %.1f%%   F = %.1f (p = %.1e)",
-                sm$r.squared*100, sm$adj.r.squared*100, fs[1], mpv),
-        side = 3, line = 2.6, cex = 0.95)
+  # 数值标签：正值放条形右端，负值放左端；带千分位与显著性星号
+  fmt_usd <- function(u) paste0(ifelse(u>=0,"+$","-$"),
+                                format(round(abs(u),0), big.mark=","))
   
-  mtext(sprintf("Note: USD effects shown at baseline $%s; effects scale with salary level.",
-                format(round(baseline,0), big.mark=",")),
-        side = 1, line = 4.5, cex = 0.9)
+  stars <- ifelse(p<.001,"***", ifelse(p<.01,"**", ifelse(p<.05,"*","")))
+  offs  <- diff(par("usr")[1:2]) * 0.012
+  
+  text(ifelse(usd>=0, usd+offs, usd-offs), y,
+       labels=paste0(fmt_usd(usd), stars),
+       adj=ifelse(usd>=0, 0, 1), cex=1.05, xpd=NA)
+  
+  # 顶部标题区（两行：主标题 + 副标题）
+  mtext("Multiple Linear Regression", side=3, line=6.5, cex=2, font=2, col=title_col)
+  mtext(model_label, side=3, line=4.8, cex=1.4, font=2, col=title_col)
+  
+  # 关键指标一行居中
+  fs  <- sm$fstatistic; mp <- pf(fs[1], fs[2], fs[3], lower.tail=FALSE)
+  mtext(sprintf("R² = %.1f%%    Adj R² = %.1f%%    F = %.1f (p = %.1e)",
+                sm$r.squared*100, sm$adj.r.squared*100, fs[1], mp),
+        side=3, line=3.2, cex=1.1)
+  
+  # 轴标题与注释
   mtext(sprintf("x-axis: Estimated impact on salary (USD) @ baseline $%s",
                 format(round(baseline,0), big.mark=",")),
-        side = 1, line = 2.8, cex = 0.9)
-  box()
+        side=1, line=4.5, cex=1.05)
+  mtext("Note: USD effects shown at baseline; effects scale with salary level.",
+        side=1, line=2.8, cex=0.95, col="#5F6C7B")
+  
+  box(col="#E4EAF2")
   dev.off()
 }
 
-dir.create("outputs", showWarnings = FALSE)
+baseline <- mean(df$Sal94, na.rm=TRUE)  # 或 median(df$Sal94)
+pretty_usd_barplot(m2, baseline,
+                   "Model m2 (Log_Sal94, with Rank)",
+                   "outputs/m2_usd_barplot_pretty.png")
+pretty_usd_barplot(m3, baseline,
+                   "Model m3 (Log_Sal94, no Rank)",
+                   "outputs/m3_usd_barplot_pretty.png")
 
-make_barplot_horiz(m2, "Model m2 (Log_Sal94, with Rank)",
-                   file = "outputs/m2_pct_barplot.png")
-make_barplot_horiz(m3, "Model m3 (Log_Sal94, no Rank)",
-                   file = "outputs/m3_pct_barplot.png")
+
+dir.create("outputs", showWarnings = FALSE)
 
 baseline <- mean(df$Sal94, na.rm = TRUE)  # median(df$Sal94)
 make_usd_barplot_horiz(m2, "Model m2 (Log_Sal94, with Rank)",
@@ -583,10 +547,4 @@ pred_f2 <- mean(smear2 * exp(predict(m2_tr, newdata=new_f)))
 pred_m2 <- mean(smear2 * exp(predict(m2_tr, newdata=new_m)))
 pred_f3 <- mean(smear3 * exp(predict(m3_tr, newdata=new_f)))
 pred_m3 <- mean(smear3 * exp(predict(m3_tr, newdata=new_m)))
-
-# 8. Diagnostic plots (Base R)
-par(mfrow = c(2, 2)); plot(m0, col = "gray40",   pch = 19); par(mfrow = c(1, 1))
-par(mfrow = c(2, 2)); plot(m1, col = "lightblue", pch = 19); par(mfrow = c(1, 1))
-par(mfrow = c(2, 2)); plot(m2, col = "orange",    pch = 19); par(mfrow = c(1, 1))
-par(mfrow = c(2, 2)); plot(m3, col = "tomato",    pch = 19); par(mfrow = c(1, 1))
 cat("\nAnalysis complete. CSV files saved in 'outputs/' folder.\n")

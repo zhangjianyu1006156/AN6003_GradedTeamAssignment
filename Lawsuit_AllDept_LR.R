@@ -11,9 +11,9 @@
 #   - Draws simple boxplots and diagnostic plots (not saved as CSV)
 
 # Macbook Path
-#setwd("/Users/zhangjianyu/Desktop/学习课件/NTU/AN6003 Analytics Strategy/AN6003 Course Materials/AN6003_GradedTeamAssignment")
+setwd("/Users/zhangjianyu/Desktop/学习课件/NTU/AN6003 Analytics Strategy/AN6003 Course Materials/AN6003_GradedTeamAssignment")
 # Windows Path
-setwd("C:/Users/Zhang/OneDrive - Nanyang Technological University/桌面/NTU学习/AN6003 Course Materials/AN6003 Course Materials/Graded Team Assignment - Gender Discrimination Lawsuit/AN6003_GradedTeamAssignment")
+#setwd("C:/Users/Zhang/OneDrive - Nanyang Technological University/桌面/NTU学习/AN6003 Course Materials/AN6003 Course Materials/Graded Team Assignment - Gender Discrimination Lawsuit/AN6003_GradedTeamAssignment")
 
 # ---------------------------
 # 0. Setup
@@ -205,7 +205,7 @@ cat("[Saved]", normalizePath(outfile_wide), "\n")
 # =========================================================
 
 # ---- small palette ----
-female_col <- "#E8A6A6"; male_col <- "#9EB9D8"
+female_col <- "pink"; male_col <- "lightblue"
 ink <- "#333333"; grid_col <- "#D9D9D9"; accent <- "#6FA8DC"
 
 # ---------- (1) Gender effect: m0 (USD) vs m3 (%) ----------
